@@ -1,0 +1,84 @@
+version: '3'
+
+networks:
+    laravel:
+
+services:
+    mariadb:
+        image: mariadb:10.6
+        restart: unless-stopped
+        tty: true
+        volumes:
+            - ./data:/var/lib/mysql
+        ports:
+            - 3306:3306
+        environment:
+            MYSQL_DATABASE: laravel
+            MYSQL_USER: laravel
+            MYSQL_PASSWORD: password
+            MYSQL_ROOT_PASSWORD: password
+            SERVICE_TAGS: dev
+            SERVICE_NAME: mariadb
+        networks:
+            - laravel
+
+    server:
+        build:
+            context: .
+            dockerfile: server.dockerfile
+        volumes:
+            - ./src:/var/www/html
+            - ./xdebug/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+            - ./xdebug/error_reporting.ini:/usr/local/etc/php/conf.d/error_reporting.ini
+        networks:
+            - laravel
+        ports:
+            - 8088:80
+
+    composer:
+        build:
+            context: .
+            dockerfile: composer.dockerfile
+        volumes:
+            - ./src:/var/www/html
+        working_dir: /var/www/html
+        depends_on:
+            - server
+        user: laravel
+        networks:
+            - laravel
+    
+    npm:
+        build:
+            context: .
+            dockerfile: npm.dockerfile
+        volumes:
+            - ./src:/var/www/html
+        working_dir: /var/www/html
+        networks:
+            - laravel
+
+    artisan:
+        build:
+            context: .
+            dockerfile: server.dockerfile
+        volumes:
+            - ./src:/var/www/html
+        depends_on:
+            - mariadb
+        working_dir: /var/www/html
+        user: laravel
+        networks:
+            - laravel
+
+    phpmyadmin:
+        image: phpmyadmin/phpmyadmin:latest
+        restart: always
+        environment:
+          PMA_HOST: mariadb
+          PMA_USER: root
+          PMA_PASSWORD: password
+        ports:
+          - 8089:80
+        networks:
+          - laravel
